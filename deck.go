@@ -1,8 +1,10 @@
 package main
 
 import (
-	"io/ioutil"
+	"bufio"
 	"math/rand"
+	"os"
+	"strings"
 )
 
 type Definition struct {
@@ -26,13 +28,30 @@ func (deck *Deck) shuffle() {
 }
 
 func loadFile(path string) (string, error) {
-	data, err := ioutil.ReadFile(path)
+	file, err := os.Open(path)
+	defer file.Close()
 
 	if err != nil {
 		return "", err
 	}
 
-	return string(data), nil
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+
+	var lines []string
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Ignore empty lines or comments
+		if len(line) == 0 || line[0] == '#' {
+			continue
+		}
+
+		lines = append(lines, line)
+	}
+
+	return strings.Join(lines, "\n"), err
 }
 
 func loadDeck(data string) *Deck {
