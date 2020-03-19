@@ -22,6 +22,27 @@ type CommandLine struct {
 	deckPath *string
 }
 
+func printDebug(deck *Deck) {
+	leitner := deck.leitner
+
+	fmt.Printf("boxes in stage %d:\n", leitner.stage)
+
+	for _, box := range leitner.boxesInCurrentStage {
+		fmt.Printf("\t- box %d\tdefinitions: %d\n", box.boxNumber, len(box.definitions))
+	}
+
+	for _, box := range leitner.boxes {
+		fmt.Println(box.boxNumber)
+		fmt.Println(box.definitions)
+	}
+
+	fmt.Println("Movements")
+
+	for def, boxNumber := range deck.leitner.movements {
+		fmt.Printf("\t%s -> %d\n", def, boxNumber)
+	}
+}
+
 func readCommandLine() *CommandLine {
 	command := CommandLine{}
 	command.deckPath = flag.String("deck-path", "", "Path to deck file")
@@ -68,20 +89,44 @@ func main() {
 
 	input := bufio.NewScanner(os.Stdin)
 
-	for true {
-		fmt.Println(deck.leitner.boxes)
-		def := deck.leitner.getDefinition()
+	leitner := deck.leitner
 
-		// def := deck.getRandomDefinition()
+	for true {
+		if leitner.isCurrentStageEmpty() {
+			leitner.move()
+			leitner.maybeChangeStage()
+			leitner.setupStage()
+
+			if leitner.isCurrentStageEmpty() {
+				continue
+			}
+		}
+
+		printDebug(deck)
+		leitner.getDefinition()
+
+		def := leitner.currentDefinition
+
 		fmt.Printf("%s: \n%s\n\n%s:\n", aurora.Yellow("Question"), def.from, aurora.Yellow("Answer"))
 
 		input.Scan()
 
 		if input.Text() == def.to {
-			deck.leitner.moveDefinitionToNextBox(def)
+			nextBox := leitner.currentBox + 1
+			if nextBox >= leitner.boxCount {
+				nextBox = leitner.boxCount - 1
+			}
+			leitner.movements[def] = nextBox
+
 			session.correctAnswers++
 			fmt.Printf("\n%s\n\n", aurora.Green("============ CORRECT ============"))
 		} else {
+			prevBox := leitner.currentBox - 1
+			if prevBox < 0 {
+				prevBox = 0
+			}
+			leitner.movements[def] = prevBox
+
 			session.wrongAnswers++
 
 			fmt.Printf("\n%s\n\n", aurora.Red("============ WRONG ============"))
