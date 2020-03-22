@@ -73,12 +73,7 @@ func getQuestionAnswer(cmd *CommandLine, def *Definition) (string, string) {
 	return def.from, def.to
 }
 
-func main() {
-	rand.Seed(time.Now().UnixNano())
-	session := Session{}
-
-	command := readCommandLine()
-
+func setupEndOfSessionHandler(session *Session) {
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
@@ -97,6 +92,14 @@ func main() {
 
 		os.Exit(0)
 	}()
+}
+
+func main() {
+	rand.Seed(time.Now().UnixNano())
+	session := Session{}
+	setupEndOfSessionHandler(&session)
+
+	command := readCommandLine()
 
 	data, err := loadFile(*command.deckPath)
 
