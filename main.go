@@ -20,6 +20,7 @@ type Session struct {
 
 type CommandLine struct {
 	deckPath *string
+	order    *string
 }
 
 func printDebug(deck *Deck) {
@@ -46,10 +47,28 @@ func printDebug(deck *Deck) {
 func readCommandLine() *CommandLine {
 	command := CommandLine{}
 	command.deckPath = flag.String("deck-path", "", "Path to deck file")
+	command.order = flag.String("order", "standard", "Question or answer first (standard, reversed, random")
 
 	flag.Parse()
 
 	return &command
+}
+
+func getQuestionAnswer(cmd *CommandLine, def *Definition) (string, string) {
+	if *cmd.order == "reversed" {
+		return def.to, def.from
+	}
+
+	if *cmd.order == "random" {
+		if rand.Float32() < 0.5 {
+			return def.to, def.from
+		} else {
+			return def.from, def.to
+		}
+	}
+
+	// order == 'standard'
+	return def.from, def.to
 }
 
 func main() {
@@ -107,11 +126,13 @@ func main() {
 
 		def := leitner.currentDefinition
 
-		fmt.Printf("%s: \n%s\n\n%s:\n", aurora.Yellow("Question"), def.from, aurora.Yellow("Answer"))
+		question, answer := getQuestionAnswer(command, def)
+
+		fmt.Printf("%s: \n%s\n\n%s:\n", aurora.Yellow("Question"), question, aurora.Yellow("Answer"))
 
 		input.Scan()
 
-		if input.Text() == def.to {
+		if input.Text() == answer {
 			nextBox := leitner.currentBox + 1
 			if nextBox >= leitner.boxCount {
 				nextBox = leitner.boxCount - 1
@@ -130,7 +151,7 @@ func main() {
 			session.wrongAnswers++
 
 			fmt.Printf("\n%s\n\n", aurora.Red("============ WRONG ============"))
-			fmt.Printf("%s:\n%s\n\n", aurora.Blue("Correct answer"), def.to)
+			fmt.Printf("%s:\n%s\n\n", aurora.Blue("Correct answer"), answer)
 		}
 	}
 }
