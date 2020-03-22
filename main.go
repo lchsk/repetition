@@ -19,6 +19,7 @@ type Session struct {
 }
 
 type CommandLine struct {
+	debug    *bool
 	deckPath *string
 	order    *string
 }
@@ -46,6 +47,7 @@ func printDebug(deck *Deck) {
 
 func readCommandLine() *CommandLine {
 	command := CommandLine{}
+	command.debug = flag.Bool("debug", false, "Debug mode")
 	command.deckPath = flag.String("deck-path", "", "Path to deck file")
 	command.order = flag.String("order", "standard", "Question or answer first (standard, reversed, random")
 
@@ -121,7 +123,10 @@ func main() {
 			}
 		}
 
-		printDebug(deck)
+		if *command.debug {
+			printDebug(deck)
+		}
+
 		leitner.getDefinition()
 
 		def := leitner.currentDefinition
