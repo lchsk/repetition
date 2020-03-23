@@ -94,10 +94,60 @@ func setupEndOfSessionHandler(session *Session) {
 	}()
 }
 
+func prepareQuestion(command *CommandLine, deck *Deck) (bool, string, string) {
+	leitner := deck.leitner
+
+	if leitner.isCurrentStageEmpty() {
+		leitner.move()
+		leitner.maybeChangeStage()
+		leitner.setupStage()
+
+		if leitner.isCurrentStageEmpty() {
+			return true, "", ""
+		}
+	}
+
+	if *command.debug {
+		printDebug(deck)
+	}
+
+	leitner.getDefinition()
+
+	question, answer := getQuestionAnswer(command, leitner.currentDefinition)
+
+	return false, question, answer
+}
+
+func recordAnswer(userAnswer string, correctAnswer string, session *Session, leitner *Leitner) {
+	def := leitner.currentDefinition
+
+	if userAnswer == correctAnswer {
+		nextBox := leitner.currentBox + 1
+		if nextBox >= leitner.boxCount {
+			nextBox = leitner.boxCount - 1
+		}
+		leitner.movements[def] = nextBox
+
+		session.correctAnswers++
+		fmt.Printf("\n%s\n\n", aurora.Green("============ CORRECT ============"))
+	} else {
+		prevBox := leitner.currentBox - 1
+		if prevBox < 0 {
+			prevBox = 0
+		}
+		leitner.movements[def] = prevBox
+
+		session.wrongAnswers++
+
+		fmt.Printf("\n%s\n\n", aurora.Red("============ WRONG ============"))
+		fmt.Printf("%s:\n%s\n\n", aurora.Blue("Correct answer"), correctAnswer)
+	}
+}
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	session := Session{}
-	setupEndOfSessionHandler(&session)
+	session := &Session{}
+	setupEndOfSessionHandler(session)
 
 	command := readCommandLine()
 
@@ -116,50 +166,16 @@ func main() {
 	leitner := deck.leitner
 
 	for true {
-		if leitner.isCurrentStageEmpty() {
-			leitner.move()
-			leitner.maybeChangeStage()
-			leitner.setupStage()
+		cont, question, answer := prepareQuestion(command, deck)
 
-			if leitner.isCurrentStageEmpty() {
-				continue
-			}
+		if cont {
+			continue
 		}
-
-		if *command.debug {
-			printDebug(deck)
-		}
-
-		leitner.getDefinition()
-
-		def := leitner.currentDefinition
-
-		question, answer := getQuestionAnswer(command, def)
 
 		fmt.Printf("%s: \n%s\n\n%s:\n", aurora.Yellow("Question"), question, aurora.Yellow("Answer"))
 
 		input.Scan()
 
-		if input.Text() == answer {
-			nextBox := leitner.currentBox + 1
-			if nextBox >= leitner.boxCount {
-				nextBox = leitner.boxCount - 1
-			}
-			leitner.movements[def] = nextBox
-
-			session.correctAnswers++
-			fmt.Printf("\n%s\n\n", aurora.Green("============ CORRECT ============"))
-		} else {
-			prevBox := leitner.currentBox - 1
-			if prevBox < 0 {
-				prevBox = 0
-			}
-			leitner.movements[def] = prevBox
-
-			session.wrongAnswers++
-
-			fmt.Printf("\n%s\n\n", aurora.Red("============ WRONG ============"))
-			fmt.Printf("%s:\n%s\n\n", aurora.Blue("Correct answer"), answer)
-		}
+		recordAnswer(input.Text(), answer, session, leitner)
 	}
 }

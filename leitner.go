@@ -1,5 +1,9 @@
 package main
 
+import (
+	"sort"
+)
+
 type Box struct {
 	boxNumber   int
 	definitions []Definition
@@ -23,12 +27,22 @@ type Leitner struct {
 	currentBox        int
 }
 
+func sortDefinitions(leitner *Leitner) {
+	for _, box := range leitner.boxes {
+		sort.Slice(box.definitions, func(i, j int) bool {
+			return box.definitions[i].to < box.definitions[j].to
+		})
+	}
+}
+
 func (leitner *Leitner) move() {
 	for def, boxNumber := range leitner.movements {
 		box := &leitner.boxes[boxNumber]
 
 		box.definitions = append(box.definitions, *def)
 	}
+
+	sortDefinitions(leitner)
 
 	leitner.movements = make(map[*Definition]int)
 }
