@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -25,22 +27,22 @@ type CommandLine struct {
 }
 
 func printDebug(deck *Deck) {
-	leitner := deck.leitner
+	leitner := deck.Leitner
 
-	fmt.Printf("boxes in stage %d:\n", leitner.stage)
+	fmt.Printf("boxes in stage %d:\n", leitner.Stage)
 
-	for _, box := range leitner.boxesInCurrentStage {
-		fmt.Printf("\t- box %d\tdefinitions: %d\n", box.boxNumber, len(box.definitions))
+	for _, box := range leitner.BoxesInCurrentStage {
+		fmt.Printf("\t- box %d\tdefinitions: %d\n", box.BoxNumber, len(box.Definitions))
 	}
 
-	for _, box := range leitner.boxes {
-		fmt.Println(box.boxNumber)
-		fmt.Println(box.definitions)
+	for _, box := range leitner.Boxes {
+		fmt.Println(box.BoxNumber)
+		fmt.Println(box.Definitions)
 	}
 
 	fmt.Println("Movements")
 
-	for def, boxNumber := range deck.leitner.movements {
+	for def, boxNumber := range deck.Leitner.movements {
 		fmt.Printf("\t%s -> %d\n", def, boxNumber)
 	}
 }
@@ -58,22 +60,42 @@ func readCommandLine() *CommandLine {
 
 func getQuestionAnswer(cmd *CommandLine, def *Definition) (string, string) {
 	if *cmd.order == "reversed" {
-		return def.to, def.from
+		return def.To, def.From
 	}
 
 	if *cmd.order == "random" {
 		if rand.Float32() < 0.5 {
-			return def.to, def.from
+			return def.To, def.From
 		} else {
-			return def.from, def.to
+			return def.From, def.To
 		}
 	}
 
 	// order == 'standard'
-	return def.from, def.to
+	return def.From, def.To
 }
 
-func setupEndOfSessionHandler(session *Session) {
+func saveDeck(deck *Deck, deckPath string) {
+	leitner := deck.Leitner
+
+	leitner.movements[leitner.CurrentDefinition] = 0
+	leitner.move()
+
+	file, err := json.MarshalIndent(deck, "", " ")
+
+	if err != nil {
+		fmt.Printf("Cannot save the deck history file %s\n", err)
+		return
+	}
+
+	err = ioutil.WriteFile(fmt.Sprintf("%s.history.json", deckPath), file, 0644)
+
+	if err != nil {
+		fmt.Printf("Cannot save the deck history file %s\n", err)
+	}
+}
+
+func setupEndOfSessionHandler(session *Session, deck *Deck, deckPath string) {
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
@@ -90,12 +112,14 @@ func setupEndOfSessionHandler(session *Session) {
 			fmt.Printf("\tPct: %0.2f%%\n", float64(session.correctAnswers)/float64(total)*100)
 		}
 
+		saveDeck(deck, deckPath)
+
 		os.Exit(0)
 	}()
 }
 
 func prepareQuestion(command *CommandLine, deck *Deck) (bool, string, string) {
-	leitner := deck.leitner
+	leitner := deck.Leitner
 
 	if leitner.isCurrentStageEmpty() {
 		leitner.move()
@@ -113,25 +137,25 @@ func prepareQuestion(command *CommandLine, deck *Deck) (bool, string, string) {
 
 	leitner.getDefinition()
 
-	question, answer := getQuestionAnswer(command, leitner.currentDefinition)
+	question, answer := getQuestionAnswer(command, leitner.CurrentDefinition)
 
 	return false, question, answer
 }
 
 func recordAnswer(userAnswer string, correctAnswer string, session *Session, leitner *Leitner) {
-	def := leitner.currentDefinition
+	def := leitner.CurrentDefinition
 
 	if userAnswer == correctAnswer {
-		nextBox := leitner.currentBox + 1
-		if nextBox >= leitner.boxCount {
-			nextBox = leitner.boxCount - 1
+		nextBox := leitner.CurrentBox + 1
+		if nextBox >= leitner.BoxCount {
+			nextBox = leitner.BoxCount - 1
 		}
 		leitner.movements[def] = nextBox
 
 		session.correctAnswers++
 		fmt.Printf("\n%s\n\n", aurora.Green("============ CORRECT ============"))
 	} else {
-		prevBox := leitner.currentBox - 1
+		prevBox := leitner.CurrentBox - 1
 		if prevBox < 0 {
 			prevBox = 0
 		}
@@ -147,7 +171,6 @@ func recordAnswer(userAnswer string, correctAnswer string, session *Session, lei
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	session := &Session{}
-	setupEndOfSessionHandler(session)
 
 	command := readCommandLine()
 
@@ -158,12 +181,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	// TODO: Load only missing definitions, if the history file is present
+
 	deck := loadDeck(data)
 	deck.shuffle()
 
+	jsonFile, _ := os.Open(fmt.Sprintf("%s.history.json", *command.deckPath))
+	defer jsonFile.Close()
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+
+	json.Unmarshal([]byte(byteValue), &deck)
+
+	deck.Definitions = []Definition{}
+
+	setupEndOfSessionHandler(session, deck, *command.deckPath)
+
 	input := bufio.NewScanner(os.Stdin)
 
-	leitner := deck.leitner
+	leitner := deck.Leitner
 
 	for true {
 		cont, question, answer := prepareQuestion(command, deck)

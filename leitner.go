@@ -5,41 +5,41 @@ import (
 )
 
 type Box struct {
-	boxNumber   int
-	definitions []Definition
+	BoxNumber   int          `json:"box_number"`
+	Definitions []Definition `json:"definitions"`
 }
 
 type Leitner struct {
-	boxCount  int
-	sessionNo int
-	boxes     []Box
+	BoxCount  int   `json:"box_count"`
+	SessionNo int   `json:"session_no"`
+	Boxes     []Box `json:"boxes"`
 
 	// 0 - 1st box
 	// 1 - 1st box, 2nd box
 	// n - 1st box, 2nd box, ..., n - 1 box, n box
-	stage int
+	Stage int `json:"stage"`
 
-	boxesInCurrentStage []*Box
+	BoxesInCurrentStage []*Box `json:"-"`
 
 	movements map[*Definition]int
 
-	currentDefinition *Definition
-	currentBox        int
+	CurrentDefinition *Definition `json:"-"`
+	CurrentBox        int         `json:"-"`
 }
 
 func sortDefinitions(leitner *Leitner) {
-	for _, box := range leitner.boxes {
-		sort.Slice(box.definitions, func(i, j int) bool {
-			return box.definitions[i].to < box.definitions[j].to
+	for _, box := range leitner.Boxes {
+		sort.Slice(box.Definitions, func(i, j int) bool {
+			return box.Definitions[i].To < box.Definitions[j].To
 		})
 	}
 }
 
 func (leitner *Leitner) move() {
 	for def, boxNumber := range leitner.movements {
-		box := &leitner.boxes[boxNumber]
+		box := &leitner.Boxes[boxNumber]
 
-		box.definitions = append(box.definitions, *def)
+		box.Definitions = append(box.Definitions, *def)
 	}
 
 	sortDefinitions(leitner)
@@ -48,12 +48,12 @@ func (leitner *Leitner) move() {
 }
 
 func (leitner *Leitner) isCurrentStageEmpty() bool {
-	if len(leitner.boxesInCurrentStage) == 0 {
+	if len(leitner.BoxesInCurrentStage) == 0 {
 		return true
 	}
 
-	for _, box := range leitner.boxesInCurrentStage {
-		if len(box.definitions) > 0 {
+	for _, box := range leitner.BoxesInCurrentStage {
+		if len(box.Definitions) > 0 {
 			return false
 		}
 	}
@@ -62,26 +62,26 @@ func (leitner *Leitner) isCurrentStageEmpty() bool {
 }
 
 func (leitner *Leitner) setupStage() {
-	leitner.boxesInCurrentStage = make([]*Box, leitner.stage+1)
+	leitner.BoxesInCurrentStage = make([]*Box, leitner.Stage+1)
 
-	for i := 0; i <= leitner.stage; i++ {
-		leitner.boxesInCurrentStage[i] = &leitner.boxes[i]
+	for i := 0; i <= leitner.Stage; i++ {
+		leitner.BoxesInCurrentStage[i] = &leitner.Boxes[i]
 	}
 }
 
 func (leitner *Leitner) maybeChangeStage() {
-	leitner.stage++
-	if leitner.stage >= leitner.boxCount {
-		leitner.stage = 0
+	leitner.Stage++
+	if leitner.Stage >= leitner.BoxCount {
+		leitner.Stage = 0
 	}
 }
 
 func (leitner *Leitner) isFirstBox(box *Box) bool {
-	return box.boxNumber == 0
+	return box.BoxNumber == 0
 }
 
 func (leitner *Leitner) isLastBox(box *Box) bool {
-	return box.boxNumber == leitner.boxCount-1
+	return box.BoxNumber == leitner.BoxCount-1
 }
 
 func (leitner *Leitner) getBox(change int) *Box {
@@ -90,14 +90,14 @@ func (leitner *Leitner) getBox(change int) *Box {
 	tries := 0
 
 	for true {
-		if tries > leitner.boxCount {
+		if tries > leitner.BoxCount {
 			return nil
 		}
 
-		box = &leitner.boxes[leitner.sessionNo%leitner.boxCount]
+		box = &leitner.Boxes[leitner.SessionNo%leitner.BoxCount]
 
-		if len(box.definitions) == 0 {
-			leitner.sessionNo += change
+		if len(box.Definitions) == 0 {
+			leitner.SessionNo += change
 		} else {
 			break
 		}
@@ -111,48 +111,48 @@ func (leitner *Leitner) getBox(change int) *Box {
 // Calculate next box in line.
 // Selected box doesn't need to have any definitions.
 func (leitner *Leitner) getAnyNextBox() *Box {
-	box := &leitner.boxes[(leitner.sessionNo)%leitner.boxCount]
+	box := &leitner.Boxes[(leitner.SessionNo)%leitner.BoxCount]
 
 	if leitner.isLastBox(box) {
 		return box
 	}
 
-	return &leitner.boxes[(leitner.sessionNo+1)%leitner.boxCount]
+	return &leitner.Boxes[(leitner.SessionNo+1)%leitner.BoxCount]
 }
 
 // Calculate previous box in line.
 // Selected box doesn't need to have any definitions.
 func (leitner *Leitner) getAnyPreviousBox() *Box {
-	box := &leitner.boxes[(leitner.sessionNo)%leitner.boxCount]
+	box := &leitner.Boxes[(leitner.SessionNo)%leitner.BoxCount]
 
 	if leitner.isFirstBox(box) {
 		return box
 	}
 
-	return &leitner.boxes[(leitner.sessionNo-1)%leitner.boxCount]
+	return &leitner.Boxes[(leitner.SessionNo-1)%leitner.BoxCount]
 }
 
 func (leitner *Leitner) moveDefinitionToNextBox(definition *Definition) {
 	nextBox := leitner.getAnyNextBox()
 
-	nextBox.definitions = append(nextBox.definitions, *definition)
+	nextBox.Definitions = append(nextBox.Definitions, *definition)
 }
 
 func (leitner *Leitner) moveDefinitionToPrevBox(definition *Definition) {
 	prevBox := leitner.getAnyPreviousBox()
 
-	prevBox.definitions = append(prevBox.definitions, *definition)
+	prevBox.Definitions = append(prevBox.Definitions, *definition)
 }
 
 func (leitner *Leitner) getDefinition() {
-	leitner.currentBox = -1
-	leitner.currentDefinition = nil
+	leitner.CurrentBox = -1
+	leitner.CurrentDefinition = nil
 
-	for _, box := range leitner.boxesInCurrentStage {
-		if len(box.definitions) > 0 {
-			leitner.currentBox = box.boxNumber
-			leitner.currentDefinition = &box.definitions[0]
-			box.definitions = box.definitions[1:]
+	for _, box := range leitner.BoxesInCurrentStage {
+		if len(box.Definitions) > 0 {
+			leitner.CurrentBox = box.BoxNumber
+			leitner.CurrentDefinition = &box.Definitions[0]
+			box.Definitions = box.Definitions[1:]
 
 			break
 		}
@@ -164,25 +164,26 @@ func initLeitner(boxCount int, allDefinitions []Definition) *Leitner {
 
 	for i := 0; i < boxCount; i++ {
 		boxes[i] = Box{
-			boxNumber: i,
+			BoxNumber:   i,
+			Definitions: []Definition{},
 		}
 	}
 
 	var firstBox *Box = &boxes[0]
 
 	for _, def := range allDefinitions {
-		firstBox.definitions = append(firstBox.definitions, def)
+		firstBox.Definitions = append(firstBox.Definitions, def)
 	}
 
 	return &Leitner{
-		boxCount:  boxCount,
-		sessionNo: 0,
-		boxes:     boxes,
+		BoxCount:  boxCount,
+		SessionNo: 0,
+		Boxes:     boxes,
 		// Stage will get set to 0 automatically
-		stage:               boxCount - 1,
-		boxesInCurrentStage: make([]*Box, 0),
+		Stage:               boxCount - 1,
+		BoxesInCurrentStage: make([]*Box, 0),
 		movements:           make(map[*Definition]int),
-		currentDefinition:   nil,
-		currentBox:          0,
+		CurrentDefinition:   nil,
+		CurrentBox:          0,
 	}
 }

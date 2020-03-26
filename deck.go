@@ -8,22 +8,22 @@ import (
 )
 
 type Definition struct {
-	from string
-	to   string
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 type Deck struct {
-	definitions []Definition
-	leitner     *Leitner
+	Definitions []Definition `json:"-"`
+	Leitner     *Leitner     `json:"leitner"`
 }
 
 func (deck *Deck) getRandomDefinition() *Definition {
-	return &deck.definitions[rand.Intn(len(deck.definitions))]
+	return &deck.Definitions[rand.Intn(len(deck.Definitions))]
 }
 
 func (deck *Deck) shuffle() {
-	rand.Shuffle(len(deck.definitions), func(i, j int) {
-		deck.definitions[i], deck.definitions[j] = deck.definitions[j], deck.definitions[i]
+	rand.Shuffle(len(deck.Definitions), func(i, j int) {
+		deck.Definitions[i], deck.Definitions[j] = deck.Definitions[j], deck.Definitions[i]
 	})
 }
 
@@ -63,15 +63,15 @@ func loadDeck(data string) *Deck {
 		words := getStringsBetween(group, '(', ')')
 
 		definition := Definition{
-			from: words[0],
-			to:   words[1],
+			From: words[0],
+			To:   words[1],
 		}
 
 		definitions = append(definitions, definition)
 	}
 
 	return &Deck{
-		definitions: definitions,
-		leitner:     initLeitner(3, definitions),
+		Definitions: definitions,
+		Leitner:     initLeitner(3, definitions),
 	}
 }
