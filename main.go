@@ -21,9 +21,10 @@ type Session struct {
 }
 
 type CommandLine struct {
-	debug    *bool
-	deckPath *string
-	order    *string
+	debug         *bool
+	deckPath      *string
+	order         *string
+	convertFromKV *string
 }
 
 func printDebug(deck *Deck) {
@@ -52,6 +53,7 @@ func readCommandLine() *CommandLine {
 	command.debug = flag.Bool("debug", false, "Debug mode")
 	command.deckPath = flag.String("deck-path", "", "Path to deck file")
 	command.order = flag.String("order", "standard", "Question or answer first (standard, reversed, random")
+	command.convertFromKV = flag.String("convert-from-kv", "", "Convert file from key-value pairs to deck")
 
 	flag.Parse()
 
@@ -173,6 +175,17 @@ func main() {
 	session := &Session{}
 
 	command := readCommandLine()
+
+	if *command.convertFromKV != "" {
+		err := convertKeyValueToDeckFile(*command.convertFromKV)
+
+		if err == nil {
+			os.Exit(0)
+		}
+
+		fmt.Println(fmt.Errorf("error: %s", err))
+		os.Exit(1)
+	}
 
 	data, err := loadFile(*command.deckPath)
 
